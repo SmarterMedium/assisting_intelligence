@@ -21,7 +21,7 @@
         }
     </style>
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen py-12">
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
     <div class="bg-white p-8 md:p-12 rounded-2xl shadow-2xl w-full max-w-2xl mx-4">
         
         <header class="text-center mb-8">
@@ -36,14 +36,13 @@
                 <input type="text" id="courseTitle" placeholder="e.g., Introduction to Astrophysics" class="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
             </div>
 
-            <!-- Step 2: Launch File -->
+            <!-- Step 2: Upload Content -->
             <div class="mb-6">
                  <label for="startPage" class="block text-sm font-medium text-gray-700 mb-2">2. Launch File</label>
                  <input type="text" id="startPage" placeholder="e.g., index.html" value="index.html" class="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
                  <p class="text-xs text-gray-500 mt-2">Enter the name of the HTML file that should open when the course starts.</p>
             </div>
 
-            <!-- Step 3: Upload Content -->
             <div class="mb-8">
                 <label class="block text-sm font-medium text-gray-700 mb-2">3. Upload Web Content (.zip)</label>
                 <div id="fileDropArea" class="file-drop-area border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer bg-gray-50 hover:bg-gray-100">
@@ -62,12 +61,9 @@
                         <p id="uploadedFileName" class="text-sm text-gray-600"></p>
                     </div>
                 </div>
-                 <div class="text-center mt-2">
-                    <p class="text-xs text-gray-500">Using on Squarespace? If upload fails, <a href="#" id="squarespaceHelpLink" class="text-blue-600 hover:underline">see the help guide</a>.</p>
-                </div>
             </div>
 
-            <!-- Step 4: Create Package -->
+            <!-- Step 3: Create Package -->
             <button id="createScorm" class="w-full bg-blue-600 text-white font-bold py-4 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-all disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center" disabled>
                 <svg id="buttonIcon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                 <span id="buttonText">Create SCORM Package</span>
@@ -85,55 +81,126 @@
     </div>
 
     <!-- Instructions Modal -->
-    <div id="instructionsModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden z-50">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-            <div class="p-6 border-b flex justify-between items-center sticky top-0 bg-white">
-                <h2 class="text-2xl font-bold text-gray-800">Help Guide</h2>
-                <button id="closeModal" class="text-gray-500 hover:text-gray-800 text-3xl">&times;</button>
+    <div id="instructionsModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-full overflow-y-auto">
+            <div class="p-6 border-b flex justify-between items-center">
+                <h2 class="text-2xl font-bold text-gray-800">SCORM API Integration</h2>
+                <button id="closeModal" class="text-gray-500 hover:text-gray-800">&times;</button>
             </div>
             <div class="p-6">
-                <h3 class="text-xl font-bold text-gray-800 mb-3">SCORM API Integration</h3>
                 <p class="text-gray-700 mb-4">
-                    For an LMS to track progress, your webpage needs to communicate with it. You can include the example JavaScript wrapper below to handle this communication.
+                    For your webpage to be tracked by a Learning Management System (LMS), it needs to include a JavaScript file that handles communication with the SCORM API. This script finds the API provided by the LMS and sends signals like "started" and "completed".
                 </p>
-                <div class="bg-gray-800 text-white p-4 rounded-lg mb-4">
+                <p class="text-gray-700 mb-4">
+                    Below is a basic example of a <code class="bg-gray-200 text-sm p-1 rounded">scorm_api_wrapper.js</code> file. You should include this in your project and call its functions from your main HTML file.
+                </p>
+                <div class="bg-gray-800 text-white p-4 rounded-lg">
                     <pre><code class="language-javascript">
 // scorm_api_wrapper.js
-// ... (SCORM API wrapper code remains the same) ...
+
 const SCORM_API = {
-    LESSON_STATUS_COMPLETED: 'completed', LESSON_STATUS_INCOMPLETE: 'incomplete',
-    findAPI: function(win) { /* ... */ }, initialize: function() { /* ... */ },
-    terminate: function() { /* ... */ }, setStatus: function(status) { /* ... */ }
+    // SCORM 1.2 constants
+    LESSON_STATUS_COMPLETED: 'completed',
+    LESSON_STATUS_INCOMPLETE: 'incomplete',
+    LESSON_STATUS_PASSED: 'passed',
+    LESSON_STATUS_FAILED: 'failed',
+
+    _api: null,
+    _isInitialized: false,
+
+    // Finds the SCORM API provided by the LMS
+    findAPI: function(win) {
+        let findAPITries = 0;
+        while ((!win.API) && (win.parent) && (win.parent != win)) {
+            findAPITries++;
+            if (findAPITries > 7) {
+                console.error("Error: Could not find the SCORM API!");
+                return null;
+            }
+            win = win.parent;
+        }
+        return win.API;
+    },
+
+    // Initializes the connection with the LMS
+    initialize: function() {
+        const win = window;
+        this._api = this.findAPI(win);
+
+        if (this._api) {
+            const result = this._api.LMSInitialize("");
+            if (result === "true") {
+                this._isInitialized = true;
+                console.log("SCORM API Initialized successfully.");
+                // Set initial status to incomplete
+                this.setStatus(this.LESSON_STATUS_INCOMPLETE);
+                return true;
+            }
+        }
+        console.error("SCORM API initialization failed.");
+        return false;
+    },
+
+    // Terminates the connection with the LMS
+    terminate: function() {
+        if (this._isInitialized) {
+            this._api.LMSFinish("");
+            this._isInitialized = false;
+            console.log("SCORM API Terminated.");
+        }
+    },
+
+    // Sets the lesson status
+    setStatus: function(status) {
+        if (this._isInitialized) {
+            const result = this._api.LMSSetValue('cmi.core.lesson_status', status);
+            this._api.LMSCommit(""); // Save changes
+            console.log(`Set lesson status to: ${status}`);
+            return result === "true";
+        }
+        return false;
+    },
+    
+    // Gets a value from the LMS
+    getValue: function(key) {
+        if (this._isInitialized) {
+            return this._api.LMSGetValue(key);
+        }
+        return null;
+    }
 };
-/* ... (Example usage remains the same) ... */
+
+// --- How to use it in your main HTML file ---
+
+/*
+&lt;html&gt;
+&lt;head&gt;
+    &lt;script src="scorm_api_wrapper.js"&gt;&lt;/script&gt;
+    &lt;script&gt;
+        // Initialize SCORM when the page loads
+        window.onload = function() {
+            SCORM_API.initialize();
+        };
+
+        // Terminate SCORM when the page is closed
+        window.onbeforeunload = function() {
+            SCORM_API.terminate();
+        };
+
+        // Example: Mark as complete when a button is clicked
+        function markCourseComplete() {
+            console.log('Marking course as complete...');
+            SCORM_API.setStatus(SCORM_API.LESSON_STATUS_COMPLETED);
+        }
+    &lt;/script&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;h1&gt;My SCORM Content&lt;/h1&gt;
+    &lt;button onclick="markCourseComplete()"&gt;Click Here to Complete The Course&lt;/button&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+*/
                     </code></pre>
-                </div>
-                
-                <div class="mt-8 pt-6 border-t">
-                    <h3 class="text-xl font-bold text-gray-800 mb-3">Using this Tool on Squarespace</h3>
-                    <p class="text-gray-700 mb-2">
-                        Squarespace's <strong>Code Block</strong> feature can sometimes restrict the functionality of file uploads for security reasons. If you find that the "Click to upload" or drag-and-drop area is not working, it's a limitation of the Squarespace platform, not an error in the tool.
-                    </p>
-                    <p class="text-gray-700 font-semibold mb-3">The Recommended Solution:</p>
-                    <ol class="list-decimal list-inside text-gray-700 space-y-2">
-                        <li>
-                            <strong>Host this tool externally:</strong> Save the entire code for this tool as an <code>index.html</code> file. Upload it to a free static hosting service like <a href="https://pages.github.com/" target="_blank" rel="noopener" class="text-blue-600 underline">GitHub Pages</a> or <a href="https://www.netlify.com/" target="_blank" rel="noopener" class="text-blue-600 underline">Netlify</a>.
-                        </li>
-                        <li>
-                            <strong>Embed in Squarespace:</strong> Once hosted, you will get a public URL (e.g., <code>https://your-username.github.io/scorm-tool/</code>). Go back to your Squarespace page and add a Code Block. Instead of pasting this tool's code, embed it using an iframe:
-                        </li>
-                    </ol>
-                    <div class="bg-gray-800 text-white p-4 rounded-lg mt-3">
-                        <pre><code class="language-html">
-&lt;iframe 
-  src="YOUR_EXTERNAL_URL_HERE" 
-  style="width: 100%; height: 900px; border: none;"&gt;
-&lt;/iframe&gt;
-                        </code></pre>
-                    </div>
-                    <p class="text-gray-700 mt-3">
-                        This method ensures full functionality by running the tool from a standard hosting environment that you can then display on your Squarespace site.
-                    </p>
                 </div>
             </div>
         </div>
@@ -157,7 +224,6 @@ const SCORM_API = {
 
         const instructionsModal = document.getElementById('instructionsModal');
         const showInstructionsLink = document.getElementById('showInstructions');
-        const squarespaceHelpLink = document.getElementById('squarespaceHelpLink');
         const closeModalButton = document.getElementById('closeModal');
 
         let uploadedFile = null;
@@ -173,6 +239,7 @@ const SCORM_API = {
         courseTitleInput.addEventListener('input', checkFormState);
         startPageInput.addEventListener('input', checkFormState);
 
+        // File Drop Area Logic
         fileDropArea.addEventListener('click', () => zipFileInput.click());
         
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -216,7 +283,7 @@ const SCORM_API = {
                 uploadPlaceholder.classList.add('hidden');
                 uploadedFileName.textContent = file.name;
                 fileNameDisplay.classList.remove('hidden');
-                showMessage("");
+                showMessage(""); // Clear any previous messages
                 checkFormState();
             } else {
                 showMessage(`Invalid file type: ${file ? file.type : 'unknown'}. Please upload a .zip file.`);
@@ -228,7 +295,7 @@ const SCORM_API = {
         }
 
         function showMessage(msg) {
-            messageArea.innerHTML = msg;
+            messageArea.innerHTML = msg; // Use innerHTML to allow for formatting
         }
         
         function setLoadingState(isLoading) {
@@ -247,6 +314,7 @@ const SCORM_API = {
         }
 
         function generateManifest(title, startPage) {
+            // Sanitize inputs for XML safety
             const safeTitle = title.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
             const safeStartPage = startPage.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
             const identifier = `ident_${new Date().getTime()}`;
@@ -257,47 +325,113 @@ const SCORM_API = {
     xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://www.imsproject.org/xsd/imscp_rootv1p1p2 imscp_rootv1p1p2.xsd http://www.imsglobal.org/xsd/imsmd_rootv1p2p1 imsmd_rootv1p2p1.xsd http://www.adlnet.org/xsd/adlcp_rootv1p2 adlcp_rootv1p2.xsd">
-    <metadata><schema>ADL SCORM</schema><schemaversion>1.2</schemaversion></metadata>
-    <organizations default="default_org"><organization identifier="default_org"><title>${safeTitle}</title>
-    <item identifier="${identifier}_item" identifierref="${identifier}_resource"><title>${safeTitle}</title></item></organization></organizations>
-    <resources><resource identifier="${identifier}_resource" type="webcontent" adlcp:scormtype="sco" href="${safeStartPage}"></resource></resources></manifest>`;
+    
+    <metadata>
+        <schema>ADL SCORM</schema>
+        <schemaversion>1.2</schemaversion>
+    </metadata>
+    
+    <organizations default="default_org">
+        <organization identifier="default_org">
+            <title>${safeTitle}</title>
+            <item identifier="${identifier}_item" identifierref="${identifier}_resource">
+                <title>${safeTitle}</title>
+            </item>
+        </organization>
+    </organizations>
+    
+    <resources>
+        <resource identifier="${identifier}_resource" type="webcontent" adlcp:scormtype="sco" href="${safeStartPage}">
+            <!-- This resource element will be populated with file references -->
+        </resource>
+    </resources>
+</manifest>`;
         }
         
         createScormButton.addEventListener('click', async () => {
-            if (!uploadedFile) { showMessage("Please upload a content ZIP file."); return; }
-            if (!courseTitleInput.value.trim()) { showMessage("Please enter a course title."); return; }
-            if (!startPageInput.value.trim()) { showMessage("Please enter a launch file name."); return; }
+            if (!uploadedFile) {
+                showMessage("Please upload a content ZIP file.");
+                return;
+            }
+            if (!courseTitleInput.value.trim()) {
+                showMessage("Please enter a course title.");
+                return;
+            }
+             if (!startPageInput.value.trim()) {
+                showMessage("Please enter a launch file name.");
+                return;
+            }
+
             setLoadingState(true);
             showMessage('');
+
             try {
                 const courseTitle = courseTitleInput.value.trim();
                 const startPage = startPageInput.value.trim();
                 const manifestXMLString = generateManifest(courseTitle, startPage);
+
                 const userZip = await JSZip.loadAsync(uploadedFile);
                 const newScormZip = new JSZip();
+
+                // ** FIX for MacOS ZIPs **
                 let basePath = "";
-                const filesInZip = Object.keys(userZip.files).filter(path => !userZip.files[path].dir && !path.startsWith('__MACOSX/'));
-                if (filesInZip.length === 0) { throw new Error("The uploaded ZIP file is empty or contains no processable files."); }
-                const firstPathParts = filesInZip[0].split('/');
-                if (firstPathParts.length > 1) {
-                    const potentialBasePath = firstPathParts[0] + '/';
-                    if (filesInZip.every(path => path.startsWith(potentialBasePath))) {
-                        basePath = potentialBasePath;
+                const filesInZip = Object.keys(userZip.files).filter(path => 
+                    !userZip.files[path].dir && !path.startsWith('__MACOSX/')
+                );
+
+                if (filesInZip.length === 0) {
+                     throw new Error("The uploaded ZIP file is empty or contains no processable files.");
+                }
+
+                if (filesInZip.length > 0) {
+                    const firstPathParts = filesInZip[0].split('/');
+                    if (firstPathParts.length > 1) {
+                        const potentialBasePath = firstPathParts[0] + '/';
+                        const allFilesInBasePath = filesInZip.every(path => path.startsWith(potentialBasePath));
+                        
+                        if (allFilesInBasePath) {
+                            basePath = potentialBasePath;
+                            console.log('Detected and removing common base path from ZIP:', basePath);
+                        }
                     }
                 }
-                let hasLaunchFile = false;
-                const rootFiles = [];
+                // ** END FIX **
+
                 const filePromises = [];
+                let hasLaunchFile = false;
+                const rootFiles = []; // To store files found at the root level
+
                 userZip.forEach((originalRelativePath, zipEntry) => {
-                    if (zipEntry.dir || originalRelativePath.startsWith('__MACOSX/')) return;
-                    const relativePath = originalRelativePath.startsWith(basePath) ? originalRelativePath.substring(basePath.length) : originalRelativePath;
-                    if (relativePath === "") return;
-                    if (!relativePath.includes('/')) rootFiles.push(relativePath);
-                    if (relativePath === startPage) hasLaunchFile = true;
-                    const promise = zipEntry.async('blob').then(blob => { newScormZip.file(relativePath, blob); });
+                    if (zipEntry.dir || originalRelativePath.startsWith('__MACOSX/')) {
+                        return;
+                    }
+                    
+                    const relativePath = originalRelativePath.startsWith(basePath) 
+                        ? originalRelativePath.substring(basePath.length) 
+                        : originalRelativePath;
+
+                    if (relativePath === "") {
+                        return;
+                    }
+                    
+                    // Check if it's a root file (doesn't contain a slash)
+                    if (!relativePath.includes('/')) {
+                        rootFiles.push(relativePath);
+                    }
+
+                    if (relativePath === startPage) {
+                        hasLaunchFile = true;
+                    }
+
+                    const promise = zipEntry.async('blob').then(blob => {
+                        newScormZip.file(relativePath, blob);
+                    });
                     filePromises.push(promise);
                 });
+
                 await Promise.all(filePromises);
+                
+                // ** ENHANCED ERROR MESSAGING **
                 if (!hasLaunchFile) {
                     let errorMsg = `The specified launch file "<b>${startPage}</b>" was not found in the root of your ZIP file.`;
                     if (rootFiles.length > 0) {
@@ -307,22 +441,30 @@ const SCORM_API = {
                     }
                     throw new Error(errorMsg);
                 }
+
+                // Now, parse the manifest and add file nodes
                 const parser = new DOMParser();
                 const xmlDoc = parser.parseFromString(manifestXMLString, "application/xml");
                 const resourceNode = xmlDoc.querySelector('resource');
+                
                 Object.keys(newScormZip.files).forEach(filename => {
-                     if (!newScormZip.files[filename].dir) {
+                     if (!newScormZip.files[filename].dir) { // only add files, not folders
                         const fileNode = xmlDoc.createElement('file');
                         fileNode.setAttribute('href', filename);
                         resourceNode.appendChild(fileNode);
                      }
                 });
+
                 const serializer = new XMLSerializer();
                 const finalManifest = serializer.serializeToString(xmlDoc);
+
                 newScormZip.file('imsmanifest.xml', finalManifest);
+
+                // Generate and download the final SCORM package
                 const content = await newScormZip.generateAsync({type: 'blob'});
                 const safeFilename = courseTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase();
                 saveAs(content, `${safeFilename}_scorm_1_2.zip`);
+
             } catch (error) {
                 console.error("Error creating SCORM package:", error);
                 showMessage(`<strong>Error:</strong> ${error.message}`);
@@ -332,14 +474,17 @@ const SCORM_API = {
         });
 
         // Modal logic
-        function openModal() { instructionsModal.classList.remove('hidden'); }
-        function closeModal() { instructionsModal.classList.add('hidden'); }
-
-        showInstructionsLink.addEventListener('click', (e) => { e.preventDefault(); openModal(); });
-        squarespaceHelpLink.addEventListener('click', (e) => { e.preventDefault(); openModal(); });
-        closeModalButton.addEventListener('click', closeModal);
+        showInstructionsLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            instructionsModal.classList.remove('hidden');
+        });
+        closeModalButton.addEventListener('click', () => {
+            instructionsModal.classList.add('hidden');
+        });
         instructionsModal.addEventListener('click', (e) => {
-             if (e.target === instructionsModal) closeModal();
+             if (e.target === instructionsModal) {
+                instructionsModal.classList.add('hidden');
+             }
         });
 
     </script>
