@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SCORM 1.2 Package Creator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .file-drop-area {
+            transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+        }
+        .file-drop-area.dragover {
+            background-color: #e0f2fe;
+            border-color: #0284c7;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen py-12">
+    <div class="bg-white p-8 md:p-12 rounded-2xl shadow-2xl w-full max-w-2xl mx-4">
+        
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-800">SCORM 1.2 Package Creator</h1>
+            <p class="text-gray-500 mt-2">Package your HTML content into a SCORM 1.2 compliant ZIP file.</p>
+        </header>
+
+        <main>
+            <!-- Step 1: Course Details -->
+            <div class="mb-6">
+                <label for="courseTitle" class="block text-sm font-medium text-gray-700 mb-2">1. Course Title</label>
+                <input type="text" id="courseTitle" placeholder="e.g., Introduction to Astrophysics" class="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+            </div>
+
+            <!-- Step 2: Launch File -->
+            <div class="mb-6">
+                 <label for="startPage" class="block text-sm font-medium text-gray-700 mb-2">2. Launch File</label>
+                 <input type="text" id="startPage" placeholder="e.g., index.html" value="index.html" class="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                 <p class="text-xs text-gray-500 mt-2">Enter the name of the HTML file that should open when the course starts.</p>
+            </div>
+
+            <!-- Step 3: Upload Content -->
+            <div class="mb-8">
+                <label class="block text-sm font-medium text-gray-700 mb-2">3. Upload Web Content (.zip)</label>
+                <div id="fileDropArea" class="file-drop-area border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer bg-gray-50 hover:bg-gray-100">
+                    <input type="file" id="zipFile" class="hidden" accept=".zip,application/x-zip,application/x-zip-compressed">
+                    <div id="uploadPlaceholder">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 4v.01M28 8L36 16m0 0v12a4 4 0 01-4 4H16a4 4 0 01-4-4V12a4 4 0 014-4h12l8 8z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                        <p class="mt-4 text-sm text-gray-600">
+                            <span class="font-semibold text-blue-600">Click to upload</span> or drag and drop
+                        </p>
+                        <p class="text-xs text-gray-500 mt-1">a single ZIP file containing your HTML content</p>
+                    </div>
+                    <div id="fileNameDisplay" class="hidden text-center">
+                        <p class="text-lg font-medium text-green-700">File Ready!</p>
+                        <p id="uploadedFileName" class="text-sm text-gray-600"></p>
+                    </div>
+                </div>
+                 <div class="text-center mt-2">
+                    <p class="text-xs text-gray-500">Using on Squarespace? If upload fails, <a href="#" id="squarespaceHelpLink" class="text-blue-600 hover:underline">see the help guide</a>.</p>
+                </div>
+            </div>
+
+            <!-- Step 4: Create Package -->
+            <button id="createScorm" class="w-full bg-blue-600 text-white font-bold py-4 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-all disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center" disabled>
+                <svg id="buttonIcon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <span id="buttonText">Create SCORM Package</span>
+                <div id="loadingSpinner" class="hidden animate-spin rounded-full h-5 w-5 border-b-2 border-white ml-2"></div>
+            </button>
+            
+            <!-- Message Area -->
+            <div id="messageArea" class="mt-6 text-center text-red-600 font-medium"></div>
+
+        </main>
+        
+        <footer class="text-center mt-8">
+             <a href="#" id="showInstructions" class="text-sm text-blue-600 hover:underline">How does my webpage talk to the LMS?</a>
+        </footer>
+    </div>
+
+    <!-- Instructions Modal -->
+    <div id="instructionsModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden z-50">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b flex justify-between items-center sticky top-0 bg-white">
+                <h2 class="text-2xl font-bold text-gray-800">Help Guide</h2>
+                <button id="closeModal" class="text-gray-500 hover:text-gray-800 text-3xl">&times;</button>
+            </div>
+            <div class="p-6">
+                <h3 class="text-xl font-bold text-gray-800 mb-3">SCORM API Integration</h3>
+                <p class="text-gray-700 mb-4">
+                    For an LMS to track progress, your webpage needs to communicate with it. You can include the example JavaScript wrapper below to handle this communication.
+                </p>
+                <div class="bg-gray-800 text-white p-4 rounded-lg mb-4">
+                    <pre><code class="language-javascript">
+// scorm_api_wrapper.js
+// ... (SCORM API wrapper code remains the same) ...
+const SCORM_API = {
+    LESSON_STATUS_COMPLETED: 'completed', LESSON_STATUS_INCOMPLETE: 'incomplete',
+    findAPI: function(win) { /* ... */ }, initialize: function() { /* ... */ },
+    terminate: function() { /* ... */ }, setStatus: function(status) { /* ... */ }
+};
+/* ... (Example usage remains the same) ... */
+                    </code></pre>
+                </div>
+                
+                <div class="mt-8 pt-6 border-t">
+                    <h3 class="text-xl font-bold text-gray-800 mb-3">Using this Tool on Squarespace</h3>
+                    <p class="text-gray-700 mb-2">
+                        Squarespace's <strong>Code Block</strong> feature can sometimes restrict the functionality of file uploads for security reasons. If you find that the "Click to upload" or drag-and-drop area is not working, it's a limitation of the Squarespace platform, not an error in the tool.
+                    </p>
+                    <p class="text-gray-700 font-semibold mb-3">The Recommended Solution:</p>
+                    <ol class="list-decimal list-inside text-gray-700 space-y-2">
+                        <li>
+                            <strong>Host this tool externally:</strong> Save the entire code for this tool as an <code>index.html</code> file. Upload it to a free static hosting service like <a href="https://pages.github.com/" target="_blank" rel="noopener" class="text-blue-600 underline">GitHub Pages</a> or <a href="https://www.netlify.com/" target="_blank" rel="noopener" class="text-blue-600 underline">Netlify</a>.
+                        </li>
+                        <li>
+                            <strong>Embed in Squarespace:</strong> Once hosted, you will get a public URL (e.g., <code>https://your-username.github.io/scorm-tool/</code>). Go back to your Squarespace page and add a Code Block. Instead of pasting this tool's code, embed it using an iframe:
+                        </li>
+                    </ol>
+                    <div class="bg-gray-800 text-white p-4 rounded-lg mt-3">
+                        <pre><code class="language-html">
+&lt;iframe 
+  src="YOUR_EXTERNAL_URL_HERE" 
+  style="width: 100%; height: 900px; border: none;"&gt;
+&lt;/iframe&gt;
+                        </code></pre>
+                    </div>
+                    <p class="text-gray-700 mt-3">
+                        This method ensures full functionality by running the tool from a standard hosting environment that you can then display on your Squarespace site.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+
+    <script>
+        const courseTitleInput = document.getElementById('courseTitle');
+        const startPageInput = document.getElementById('startPage');
+        const zipFileInput = document.getElementById('zipFile');
+        const createScormButton = document.getElementById('createScorm');
+        const messageArea = document.getElementById('messageArea');
+        const fileDropArea = document.getElementById('fileDropArea');
+        const uploadPlaceholder = document.getElementById('uploadPlaceholder');
+        const fileNameDisplay = document.getElementById('fileNameDisplay');
+        const uploadedFileName = document.getElementById('uploadedFileName');
+        
+        const buttonText = document.getElementById('buttonText');
+        const buttonIcon = document.getElementById('buttonIcon');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+
+        const instructionsModal = document.getElementById('instructionsModal');
+        const showInstructionsLink = document.getElementById('showInstructions');
+        const squarespaceHelpLink = document.getElementById('squarespaceHelpLink');
+        const closeModalButton = document.getElementById('closeModal');
+
+        let uploadedFile = null;
+
+        function checkFormState() {
+            if (courseTitleInput.value.trim() && startPageInput.value.trim() && uploadedFile) {
+                createScormButton.disabled = false;
+            } else {
+                createScormButton.disabled = true;
+            }
+        }
+
+        courseTitleInput.addEventListener('input', checkFormState);
+        startPageInput.addEventListener('input', checkFormState);
+
+        fileDropArea.addEventListener('click', () => zipFileInput.click());
+        
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            fileDropArea.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            fileDropArea.addEventListener(eventName, () => fileDropArea.classList.add('dragover'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            fileDropArea.addEventListener(eventName, () => fileDropArea.classList.remove('dragover'), false);
+        });
+
+        fileDropArea.addEventListener('drop', handleDrop, false);
+        zipFileInput.addEventListener('change', handleFileSelect);
+
+        function handleDrop(e) {
+            let dt = e.dataTransfer;
+            let files = dt.files;
+            handleFiles(files);
+        }
+
+        function handleFileSelect(e) {
+            handleFiles(e.target.files);
+        }
+
+        function handleFiles(files) {
+            if (files.length > 1) {
+                showMessage("Please only drop one ZIP file.");
+                return;
+            }
+            const file = files[0];
+            if (file && (file.type === "application/zip" || file.type === "application/x-zip-compressed")) {
+                uploadedFile = file;
+                uploadPlaceholder.classList.add('hidden');
+                uploadedFileName.textContent = file.name;
+                fileNameDisplay.classList.remove('hidden');
+                showMessage("");
+                checkFormState();
+            } else {
+                showMessage(`Invalid file type: ${file ? file.type : 'unknown'}. Please upload a .zip file.`);
+                uploadedFile = null;
+                uploadPlaceholder.classList.remove('hidden');
+                fileNameDisplay.classList.add('hidden');
+                checkFormState();
+            }
+        }
+
+        function showMessage(msg) {
+            messageArea.innerHTML = msg;
+        }
+        
+        function setLoadingState(isLoading) {
+             if (isLoading) {
+                createScormButton.disabled = true;
+                buttonText.textContent = 'Packaging...';
+                buttonIcon.classList.add('hidden');
+                loadingSpinner.classList.remove('hidden');
+            } else {
+                createScormButton.disabled = false;
+                buttonText.textContent = 'Create SCORM Package';
+                buttonIcon.classList.remove('hidden');
+                loadingSpinner.classList.add('hidden');
+            }
+            checkFormState();
+        }
+
+        function generateManifest(title, startPage) {
+            const safeTitle = title.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const safeStartPage = startPage.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const identifier = `ident_${new Date().getTime()}`;
+
+            return `<?xml version="1.0" standalone="no"?>
+<manifest identifier="${identifier}_manifest" version="1.2"
+    xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2"
+    xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.imsproject.org/xsd/imscp_rootv1p1p2 imscp_rootv1p1p2.xsd http://www.imsglobal.org/xsd/imsmd_rootv1p2p1 imsmd_rootv1p2p1.xsd http://www.adlnet.org/xsd/adlcp_rootv1p2 adlcp_rootv1p2.xsd">
+    <metadata><schema>ADL SCORM</schema><schemaversion>1.2</schemaversion></metadata>
+    <organizations default="default_org"><organization identifier="default_org"><title>${safeTitle}</title>
+    <item identifier="${identifier}_item" identifierref="${identifier}_resource"><title>${safeTitle}</title></item></organization></organizations>
+    <resources><resource identifier="${identifier}_resource" type="webcontent" adlcp:scormtype="sco" href="${safeStartPage}"></resource></resources></manifest>`;
+        }
+        
+        createScormButton.addEventListener('click', async () => {
+            if (!uploadedFile) { showMessage("Please upload a content ZIP file."); return; }
+            if (!courseTitleInput.value.trim()) { showMessage("Please enter a course title."); return; }
+            if (!startPageInput.value.trim()) { showMessage("Please enter a launch file name."); return; }
+            setLoadingState(true);
+            showMessage('');
+            try {
+                const courseTitle = courseTitleInput.value.trim();
+                const startPage = startPageInput.value.trim();
+                const manifestXMLString = generateManifest(courseTitle, startPage);
+                const userZip = await JSZip.loadAsync(uploadedFile);
+                const newScormZip = new JSZip();
+                let basePath = "";
+                const filesInZip = Object.keys(userZip.files).filter(path => !userZip.files[path].dir && !path.startsWith('__MACOSX/'));
+                if (filesInZip.length === 0) { throw new Error("The uploaded ZIP file is empty or contains no processable files."); }
+                const firstPathParts = filesInZip[0].split('/');
+                if (firstPathParts.length > 1) {
+                    const potentialBasePath = firstPathParts[0] + '/';
+                    if (filesInZip.every(path => path.startsWith(potentialBasePath))) {
+                        basePath = potentialBasePath;
+                    }
+                }
+                let hasLaunchFile = false;
+                const rootFiles = [];
+                const filePromises = [];
+                userZip.forEach((originalRelativePath, zipEntry) => {
+                    if (zipEntry.dir || originalRelativePath.startsWith('__MACOSX/')) return;
+                    const relativePath = originalRelativePath.startsWith(basePath) ? originalRelativePath.substring(basePath.length) : originalRelativePath;
+                    if (relativePath === "") return;
+                    if (!relativePath.includes('/')) rootFiles.push(relativePath);
+                    if (relativePath === startPage) hasLaunchFile = true;
+                    const promise = zipEntry.async('blob').then(blob => { newScormZip.file(relativePath, blob); });
+                    filePromises.push(promise);
+                });
+                await Promise.all(filePromises);
+                if (!hasLaunchFile) {
+                    let errorMsg = `The specified launch file "<b>${startPage}</b>" was not found in the root of your ZIP file.`;
+                    if (rootFiles.length > 0) {
+                        errorMsg += `<br><br>The following files were found at the root level: <br><i>${rootFiles.join(', ')}</i><br><br>Please check for typos or ensure your launch file is not in a subfolder.`;
+                    } else {
+                        errorMsg += `<br><br>No files were found at the root level of the ZIP. Please check your ZIP file's structure.`;
+                    }
+                    throw new Error(errorMsg);
+                }
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(manifestXMLString, "application/xml");
+                const resourceNode = xmlDoc.querySelector('resource');
+                Object.keys(newScormZip.files).forEach(filename => {
+                     if (!newScormZip.files[filename].dir) {
+                        const fileNode = xmlDoc.createElement('file');
+                        fileNode.setAttribute('href', filename);
+                        resourceNode.appendChild(fileNode);
+                     }
+                });
+                const serializer = new XMLSerializer();
+                const finalManifest = serializer.serializeToString(xmlDoc);
+                newScormZip.file('imsmanifest.xml', finalManifest);
+                const content = await newScormZip.generateAsync({type: 'blob'});
+                const safeFilename = courseTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                saveAs(content, `${safeFilename}_scorm_1_2.zip`);
+            } catch (error) {
+                console.error("Error creating SCORM package:", error);
+                showMessage(`<strong>Error:</strong> ${error.message}`);
+            } finally {
+                setLoadingState(false);
+            }
+        });
+
+        // Modal logic
+        function openModal() { instructionsModal.classList.remove('hidden'); }
+        function closeModal() { instructionsModal.classList.add('hidden'); }
+
+        showInstructionsLink.addEventListener('click', (e) => { e.preventDefault(); openModal(); });
+        squarespaceHelpLink.addEventListener('click', (e) => { e.preventDefault(); openModal(); });
+        closeModalButton.addEventListener('click', closeModal);
+        instructionsModal.addEventListener('click', (e) => {
+             if (e.target === instructionsModal) closeModal();
+        });
+
+    </script>
+</body>
+</html>
